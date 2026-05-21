@@ -3,38 +3,47 @@ import numpy as np
 import heapq
 import math
 
-# Global variables for interactive clicking
-clicked_points = []
+# Global variables to handle the scale difference
+SCALE_PERCENT = 20
+SCALE_FACTOR = 100 / SCALE_PERCENT # e.g., 5.0
+clicked_points_grid = []
+clicked_points_high_res = []
 
 def get_click(event, x, y, flags, param):
-    """ Captures mouse clicks to set start and end points """
-    global clicked_points
+    """ Captures mouse clicks and translates them to the mini-grid """
+    global clicked_points_grid, clicked_points_high_res
     if event == cv2.EVENT_LBUTTONDOWN:
-        if len(clicked_points) < 2:
-            clicked_points.append((y, x))
-            print(f"Point recorded at: {(y, x)}")
+        if len(clicked_points_grid) < 2:
+            # Save the exact high-res pixel for drawing circles
+            clicked_points_high_res.append((y, x))
+            
+            # Translate that pixel down to the 20% math grid
+            grid_y = int(y / SCALE_FACTOR)
+            grid_x = int(x / SCALE_FACTOR)
+            clicked_points_grid.append((grid_y, grid_x))
+            print(f"Point locked in!")
 
 def get_walkable_grid(image_path):
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
+    # Load the FULL resolution original image
+    img_full = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if img_full is None:
         raise ValueError("Image not found. Check the file path.")
 
-    scale_percent = 20 
-    width = int(img.shape[1] * scale_percent / 100)
-    height = int(img.shape[0] * scale_percent / 100)
-    dim = (width, height)
-    resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+    # Create the tiny grid for math
+    width = int(img_full.shape[1] * SCALE_PERCENT / 100)
+    height = int(img_full.shape[0] * SCALE_PERCENT / 100)
+    resized = cv2.resize(img_full, (width, height), interpolation=cv2.INTER_AREA)
 
     _, thresh = cv2.threshold(resized, 120, 255, cv2.THRESH_BINARY)
     grid = (thresh == 255).astype(int)
     
-    return grid, resized, thresh
+    # Notice we now return img_full, NOT resized!
+    return grid, img_full
 
 def heuristic(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 def astar_visualized(grid, start, end, display_img):
-    """ A* algorithm with built-in OpenCV visualization """
     rows, cols = grid.shape
     g_scores = {start: 0}
     open_list = [(0, start)]
@@ -49,20 +58,22 @@ def astar_visualized(grid, start, end, display_img):
         nodes_explored += 1
         current_f, current_pos = heapq.heappop(open_list)
 
-        # --- VISUALIZATION LOGIC ---
-        # Color the explored node light blue (BGR format)
+        # --- VISUALIZATION LOGIC (SCALED UP) ---
         if current_pos != start and current_pos != end:
-            display_img[current_pos[0], current_pos[1]] = [255, 170, 170] 
+            # Map the tiny grid coordinate back to a block on the high-res image
+            r_start = int(current_pos[0] * SCALE_FACTOR)
+            r_end = int(r_start + SCALE_FACTOR)
+            c_start = int(current_pos[1] * SCALE_FACTOR)
+            c_end = int(c_start + SCALE_FACTOR)
+            
+            # Color that block light blue
+            display_img[r_start:r_end, c_start:c_end] = [255, 170, 170] 
 
-        # Update the OpenCV window every 50 nodes to animate it
-        # (Lower number = smoother animation but slower calculation)
         if nodes_explored % 50 == 0:
             cv2.imshow("AI Pathfinding", display_img)
-            # waitKey(1) is required to force OpenCV to draw the frame
-            if cv2.waitKey(1) == 27: # Press ESC to cancel early
-                print("Search cancelled by user.")
+            if cv2.waitKey(1) == 27:
                 return None
-        # ---------------------------
+        # ---------------------------------------
 
         if current_pos == end:
             path = []
@@ -89,20 +100,25 @@ def astar_visualized(grid, start, end, display_img):
                 f_score = tentative_g + heuristic(neighbor, end)
                 heapq.heappush(open_list, (f_score, neighbor))
                 
-                # Color nodes added to the "frontier" light green
+                # Color the frontier green
                 if neighbor != start and neighbor != end:
-                    display_img[neighbor[0], neighbor[1]] = [170, 255, 170]
+                    r1 = int(neighbor[0] * SCALE_FACTOR)
+                    c1 = int(neighbor[1] * SCALE_FACTOR)
+                    display_img[r1:r1+int(SCALE_FACTOR), c1:c1+int(SCALE_FACTOR)] = [170, 255, 170]
 
     return None
 
 def main():
+    # Make sure this points to your map image!
     image_path = "map.jpeg" 
     
-    print("Loading image...")
-    grid, original_img, thresh_img = get_walkable_grid(image_path)
-    display_img = cv2.cvtColor(original_img, cv2.COLOR_GRAY2BGR)
+    print("Loading high-resolution image...")
+    grid, img_full = get_walkable_grid(image_path)
+    display_img = cv2.cvtColor(img_full, cv2.COLOR_GRAY2BGR)
 
-    cv2.namedWindow("AI Pathfinding")
+    # Setup the window (This will now scale cleanly!)
+    cv2.namedWindow("AI Pathfinding", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("AI Pathfinding", 900, 900) 
     cv2.setMouseCallback("AI Pathfinding", get_click)
 
     print("\nINTERACTIVE MODE:")
@@ -113,43 +129,42 @@ def main():
     while True:
         temp_img = display_img.copy()
         
-        if len(clicked_points) > 0:
-            cv2.circle(temp_img, (clicked_points[0][1], clicked_points[0][0]), 4, (0, 255, 0), -1)
-        if len(clicked_points) > 1:
-            cv2.circle(temp_img, (clicked_points[1][1], clicked_points[1][0]), 4, (255, 0, 0), -1)
+        # Draw clicks using the High-Res coordinates
+        if len(clicked_points_high_res) > 0:
+            cv2.circle(temp_img, (clicked_points_high_res[0][1], clicked_points_high_res[0][0]), 8, (0, 255, 0), -1)
+        if len(clicked_points_high_res) > 1:
+            cv2.circle(temp_img, (clicked_points_high_res[1][1], clicked_points_high_res[1][0]), 8, (255, 0, 0), -1)
             
         cv2.imshow("AI Pathfinding", temp_img)
         
         key = cv2.waitKey(1) & 0xFF
-        if key == 13 and len(clicked_points) == 2: # Enter key
+        if key == 13 and len(clicked_points_grid) == 2:
             break
-        elif key == 27: # ESC key
+        elif key == 27:
             return
 
-    start = clicked_points[0]
-    end = clicked_points[1]
+    start_grid = clicked_points_grid[0]
+    end_grid = clicked_points_grid[1]
 
-    if grid[start[0]][start[1]] == 0 or grid[end[0]][end[1]] == 0:
+    if grid[start_grid[0]][start_grid[1]] == 0 or grid[end_grid[0]][end_grid[1]] == 0:
         print("\n[!] ERROR: One of your points is inside a wall.")
         cv2.destroyAllWindows()
         return
 
     print("\nSearching for path... Watch the map window!")
-    
-    # We now pass display_img into the function so it can draw on it
-    path = astar_visualized(grid, start, end, display_img)
+    path = astar_visualized(grid, start_grid, end_grid, display_img)
 
     if path:
         print("Path found! Drawing routing...")
-        # Draw the final path in thick red
+        # Draw the final path, mapped back to High-Res coordinates
         for i in range(len(path) - 1):
-            pt1 = (path[i][1], path[i][0])
-            pt2 = (path[i+1][1], path[i+1][0])
-            cv2.line(display_img, pt1, pt2, (0, 0, 255), 2)
+            # Center the line inside the block by adding half the scale factor
+            pt1 = (int(path[i][1] * SCALE_FACTOR + SCALE_FACTOR/2), int(path[i][0] * SCALE_FACTOR + SCALE_FACTOR/2))
+            pt2 = (int(path[i+1][1] * SCALE_FACTOR + SCALE_FACTOR/2), int(path[i+1][0] * SCALE_FACTOR + SCALE_FACTOR/2))
+            cv2.line(display_img, pt1, pt2, (0, 0, 255), 4)
     else:
         print("\n[!] NO PATH FOUND.")
 
-    # Show final result and wait for user to close
     cv2.imshow("AI Pathfinding", display_img)
     print("Press any key on the image window to close.")
     cv2.waitKey(0)
