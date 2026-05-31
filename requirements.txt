@@ -1,0 +1,11 @@
+# --- Core Computer Vision & Image Processing ---
+opencv-python>=4.8.0.76     # Used for map rendering, thresholding, erosion, and video capture
+numpy>=1.24.0               # Used for matrix operations, grid arrays, and structuring elements
+
+# --- AI & Object Detection (AiMaxSteeringModel) ---
+ultralytics>=8.1.0          # Handles the YOLOv8 object detection engine and model inferences
+torch>=2.1.0                # Deep learning framework required by Ultralytics
+torchvision>=0.16.0         # Image transformations and utilities for PyTorch
+
+# --- Automation & Input Controls ---
+PyAutoGUI>=0.9.54           # Handles system level keyboard emulation (WASD key presses)
