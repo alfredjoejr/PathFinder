@@ -34,7 +34,7 @@ def get_walkable_grid(image_path):
     # We create a "brush" (kernel) to shave off the edges of the walkable floor.
     # A 3x3 kernel pushes the bot away by roughly 1-2 scaled pixels.
     # If the bot still touches the wall, change (3, 3) to (5, 5)!
-    kernel = np.ones((5, 5), np.uint8) 
+    kernel = np.ones((3, 3), np.uint8) 
     safe_thresh = cv2.erode(thresh, kernel, iterations=1)
     # -----------------------------------------
     
