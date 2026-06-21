@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import heapq
 import math
+import json 
 
 SCALE_PERCENT = 20
 SCALE_FACTOR = 100 / SCALE_PERCENT 
@@ -30,16 +31,11 @@ def get_walkable_grid(image_path):
 
     _, thresh = cv2.threshold(resized, 120, 255, cv2.THRESH_BINARY)
     
-    # --- THE FIX: WALL INFLATION (EROSION) ---
-    # We create a "brush" (kernel) to shave off the edges of the walkable floor.
-    # A 3x3 kernel pushes the bot away by roughly 1-2 scaled pixels.
-    # If the bot still touches the wall, change (3, 3) to (5, 5)!
     kernel = np.ones((3, 3), np.uint8) 
     safe_thresh = cv2.erode(thresh, kernel, iterations=1)
-    # -----------------------------------------
     
-    # We now pass the safe_thresh to the A* grid, keeping the bot away from edges
     return (safe_thresh == 255).astype(int), img_full
+
 def heuristic(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
@@ -72,7 +68,6 @@ def astar(grid, start, end):
     return None
 
 def has_line_of_sight(grid, p1, p2):
-    """ Simple Raycaster to check if a straight line hits a wall """
     y1, x1 = p1
     y2, x2 = p2
     dy = y2 - y1
@@ -85,19 +80,17 @@ def has_line_of_sight(grid, p1, p2):
         t = i / distance
         y = int(y1 + t * dy)
         x = int(x1 + t * dx)
-        if grid[y][x] == 0: # Hit a wall
+        if grid[y][x] == 0: 
             return False
     return True
 
 def smooth_path(grid, path):
-    """ Converts a pixel-by-pixel path into straight waypoints """
     if not path: return []
     smoothed = [path[0]]
     current_idx = 0
     
     while current_idx < len(path) - 1:
         furthest_visible = current_idx + 1
-        # Look ahead to find the furthest point we can see in a straight line
         for i in range(len(path) - 1, current_idx, -1):
             if has_line_of_sight(grid, path[current_idx], path[i]):
                 furthest_visible = i
@@ -106,17 +99,6 @@ def smooth_path(grid, path):
         current_idx = furthest_visible
         
     return smoothed
-
-def get_absolute_wasd(angle_deg):
-    """ Converts an angle into absolute Map WASD keys """
-    if -22.5 <= angle_deg < 22.5: return "[D]" # Right
-    elif 22.5 <= angle_deg < 67.5: return "[S] + [D]" # Down-Right
-    elif 67.5 <= angle_deg < 112.5: return "[S]" # Down
-    elif 112.5 <= angle_deg < 157.5: return "[S] + [A]" # Down-Left
-    elif -67.5 <= angle_deg < -22.5: return "[W] + [D]" # Up-Right
-    elif -112.5 <= angle_deg < -67.5: return "[W]" # Up
-    elif -157.5 <= angle_deg < -112.5: return "[W] + [A]" # Up-Left
-    else: return "[A]" # Left
 
 def main():
     image_path = "map.jpeg" 
@@ -138,13 +120,13 @@ def main():
     while True:
         temp_img = base_display.copy()
         
-        if len(clicked_points_high_res) > 0: # Start
+        if len(clicked_points_high_res) > 0: 
             cv2.circle(temp_img, (clicked_points_high_res[0][1], clicked_points_high_res[0][0]), 6, (0, 255, 0), -1)
-        if len(clicked_points_high_res) > 1: # Facing
+        if len(clicked_points_high_res) > 1: 
             cv2.line(temp_img, (clicked_points_high_res[0][1], clicked_points_high_res[0][0]), 
                      (clicked_points_high_res[1][1], clicked_points_high_res[1][0]), (0, 255, 255), 2)
             cv2.circle(temp_img, (clicked_points_high_res[1][1], clicked_points_high_res[1][0]), 4, (0, 255, 255), -1)
-        if len(clicked_points_high_res) > 2: # End
+        if len(clicked_points_high_res) > 2: 
             cv2.circle(temp_img, (clicked_points_high_res[2][1], clicked_points_high_res[2][0]), 6, (255, 0, 0), -1)
             
         cv2.imshow("Path to Command Sequence", temp_img)
@@ -155,7 +137,6 @@ def main():
     facing_grid = clicked_points_grid[1]
     end_grid = clicked_points_grid[2]
 
-    # Calculate initial facing angle
     init_dy = facing_grid[0] - start_grid[0]
     init_dx = facing_grid[1] - start_grid[1]
     current_facing_angle = math.degrees(math.atan2(init_dy, init_dx))
@@ -170,51 +151,54 @@ def main():
     print("Path found! Smoothing waypoints...")
     waypoints = smooth_path(grid, raw_path)
 
-    # --- DRAWING THE WAYPOINTS ON SCREEN ---
     for i in range(len(waypoints) - 1):
         pt1 = (int(waypoints[i][1] * SCALE_FACTOR), int(waypoints[i][0] * SCALE_FACTOR))
         pt2 = (int(waypoints[i+1][1] * SCALE_FACTOR), int(waypoints[i+1][0] * SCALE_FACTOR))
         cv2.line(base_display, pt1, pt2, (0, 0, 255), 3)
-        cv2.circle(base_display, pt2, 5, (255, 0, 255), -1) # Draw the corners
+        cv2.circle(base_display, pt2, 5, (255, 0, 255), -1) 
 
     cv2.imshow("Path to Command Sequence", base_display)
 
-    # --- GENERATING THE MOVEMENT COMMANDS ---
-    print("\n" + "#"*40)
-    print("🤖 BOT MOVEMENT SEQUENCE INITIATED")
-    print("#"*40)
-    print(f"INITIAL STATE:")
-    print(f"-> Spawning at coordinates: (X:{int(start_grid[1]*SCALE_FACTOR)}, Y:{int(start_grid[0]*SCALE_FACTOR)})")
-    print(f"-> Initially facing angle: {int(current_facing_angle)}°")
-    print("-" * 40)
-
+    # --- HARDWARE BOT INSTRUCTION GENERATION ---
+    hardware_instructions = []
+    
     for i in range(len(waypoints) - 1):
         p1 = waypoints[i]
         p2 = waypoints[i+1]
         
-        # Calculate vector to next waypoint
         dy = p2[0] - p1[0]
         dx = p2[1] - p1[1]
+        
         target_angle = math.degrees(math.atan2(dy, dx))
         distance = math.hypot(dx, dy) * SCALE_FACTOR
         
-        # Calculate how much to turn
         turn_amount = target_angle - current_facing_angle
-        # Normalize turn to be between -180 and +180
         turn_amount = (turn_amount + 180) % 360 - 180 
         
-        abs_keys = get_absolute_wasd(target_angle)
-
-        print(f"WAYPOINT {i+1}:")
-        print(f"  FPS Controls:   Turn {int(turn_amount):+d}° to face {int(target_angle)}°, then Hold [W] for {int(distance)} pixels.")
-        print(f"  Map Controls:   Hold {abs_keys} for {int(distance)} pixels.")
+        instruction = {
+            "step": i + 1,
+            "turn_angle_degrees": round(turn_amount, 2),
+            "move_forward_pixels": round(distance, 2),
+            "waypoint_reached": True 
+        }
+        hardware_instructions.append(instruction)
         
-        # Update facing angle for the next step
         current_facing_angle = target_angle
 
-    print("#"*40 + "\n")
+    # --- FILE DUMP IMPLEMENTATION ---
+    output_filename = "bot_instructions.json"
     
-    print("Commands outputted to terminal. Press any key on the map window to close.")
+    try:
+        with open(output_filename, "w") as json_file:
+            json.dump(hardware_instructions, json_file, indent=4)
+            
+        print("\n" + "#"*50)
+        print(f"✅ SUCCESS: Instructions dumped to '{output_filename}'")
+        print("#"*50 + "\n")
+    except Exception as e:
+        print(f"\n[!] ERROR writing to file: {e}\n")
+    
+    print("Press any key on the map window to close.")
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 

@@ -1,0 +1,44 @@
+[
+    {
+        "step": 1,
+        "turn_angle_degrees": 90.53,
+        "move_forward_pixels": 106.89,
+        "waypoint_reached": true
+    },
+    {
+        "step": 2,
+        "turn_angle_degrees": -34.22,
+        "move_forward_pixels": 14.14,
+        "waypoint_reached": true
+    },
+    {
+        "step": 3,
+        "turn_angle_degrees": 0.0,
+        "move_forward_pixels": 35.36,
+        "waypoint_reached": true
+    },
+    {
+        "step": 4,
+        "turn_angle_degrees": 52.59,
+        "move_forward_pixels": 75.66,
+        "waypoint_reached": true
+    },
+    {
+        "step": 5,
+        "turn_angle_degrees": 15.6,
+        "move_forward_pixels": 38.08,
+        "waypoint_reached": true
+    },
+    {
+        "step": 6,
+        "turn_angle_degrees": 21.8,
+        "move_forward_pixels": 7.07,
+        "waypoint_reached": true
+    },
+    {
+        "step": 7,
+        "turn_angle_degrees": 33.23,
+        "move_forward_pixels": 122.58,
+        "waypoint_reached": true
+    }
+]
