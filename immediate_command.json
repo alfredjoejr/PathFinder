@@ -1,0 +1,9 @@
+{
+    "timestamp": 1782298512.0476296,
+    "detected_state": {
+        "left_blocked": 1.74,
+        "center_blocked": 0.27,
+        "right_blocked": 2.07
+    },
+    "hardware_command": "MOVE_FORWARD (Hold W)"
+}

@@ -1,0 +1,68 @@
+[
+    {
+        "step": 1,
+        "turn_angle_degrees": 51.76,
+        "move_forward_pixels": 76.32,
+        "waypoint_reached": true
+    },
+    {
+        "step": 2,
+        "turn_angle_degrees": -72.43,
+        "move_forward_pixels": 41.23,
+        "waypoint_reached": true
+    },
+    {
+        "step": 3,
+        "turn_angle_degrees": -30.96,
+        "move_forward_pixels": 35.36,
+        "waypoint_reached": true
+    },
+    {
+        "step": 4,
+        "turn_angle_degrees": 29.05,
+        "move_forward_pixels": 36.4,
+        "waypoint_reached": true
+    },
+    {
+        "step": 5,
+        "turn_angle_degrees": -40.36,
+        "move_forward_pixels": 36.06,
+        "waypoint_reached": true
+    },
+    {
+        "step": 6,
+        "turn_angle_degrees": 43.32,
+        "move_forward_pixels": 66.71,
+        "waypoint_reached": true
+    },
+    {
+        "step": 7,
+        "turn_angle_degrees": -25.67,
+        "move_forward_pixels": 32.02,
+        "waypoint_reached": true
+    },
+    {
+        "step": 8,
+        "turn_angle_degrees": 32.32,
+        "move_forward_pixels": 45.28,
+        "waypoint_reached": true
+    },
+    {
+        "step": 9,
+        "turn_angle_degrees": 6.34,
+        "move_forward_pixels": 15.0,
+        "waypoint_reached": true
+    },
+    {
+        "step": 10,
+        "turn_angle_degrees": 45.0,
+        "move_forward_pixels": 14.14,
+        "waypoint_reached": true
+    },
+    {
+        "step": 11,
+        "turn_angle_degrees": -5.71,
+        "move_forward_pixels": 142.13,
+        "waypoint_reached": true
+    }
+]
