@@ -1,5 +1,5 @@
 """
-actuator_gui.py
+racing_runner.py
 Autonomous Racing Auto-Pilot Dashboard.
 
 Captures USB camera feed → runs Canny edge-density analysis (left / center / right)

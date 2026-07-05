@@ -16,7 +16,7 @@ class AILauncher:
         
         # Target Folders
         self.mapper_dir = os.path.join(self.base_dir, "mapper")
-        self.actuator_dir = os.path.join(self.base_dir, "ActuatorProgram")
+        self.racing_dir = os.path.join(self.base_dir, "racing")
         
         # UI Elements
         tk.Label(root, text="PathFinder — Game Control", font=("Arial", 14, "bold")).pack(pady=(0, 20))
@@ -63,8 +63,8 @@ class AILauncher:
 
 
     def run_actuator(self):
-        # Route to ActuatorProgram/actuator_gui.py
-        self.run_script("actuator_gui.py", self.actuator_dir)
+        # Route to racing/racing_runner.py
+        self.run_script("racing_runner.py", self.racing_dir)
 
 if __name__ == "__main__":
     root = tk.Tk()
