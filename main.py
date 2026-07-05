@@ -58,8 +58,8 @@ class AILauncher:
             self.status_var.set("Ready")
 
     def run_map(self):
-        # Route to mapper/mapRunner.py
-        self.run_script("mapRunner.py", self.mapper_dir)
+        # Route to mapper/valorant_runner.py
+        self.run_script("valorant_runner.py", self.mapper_dir)
 
 
     def run_actuator(self):

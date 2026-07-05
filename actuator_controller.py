@@ -1,10 +1,11 @@
 """
 actuator_controller.py
-Serial protocol handler for the ESP32 Racing Actuator.
+Shared serial protocol handler for the ESP32 actuator.
 
 Speaks the protocol defined in ActuatorProgram/include/README.md:
-  MODE,SET,RACING  /  MODE,START  /  MODE,STOP  /  MODE,RESET  /  MODE,STATUS
-  STEPPER,LEFT[,RATE_HZ]  /  STEPPER,RIGHT[,RATE_HZ]  /  STEPPER,STOP
+  MODE,SET,VALORANT / MODE,SET,RACING / MODE,START / MODE,STOP / MODE,RESET / MODE,STATUS
+  SERVO,LJX,LJY,RJX,RJY,TRIGGER[,DURATION]  (Valorant mode)
+  STEPPER,LEFT[,RATE_HZ] / STEPPER,RIGHT[,RATE_HZ] / STEPPER,STOP  (Racing mode)
 """
 
 import threading
@@ -14,7 +15,7 @@ import serial.tools.list_ports
 
 
 class ActuatorController:
-    """Thread-safe serial controller for the ESP32 racing actuator."""
+    """Thread-safe serial controller for the ESP32 actuator (Valorant + Racing)."""
 
     BAUD_RATE = 115200
 
@@ -77,6 +78,10 @@ class ActuatorController:
 
     # ── mode commands ───────────────────────────────────────────
 
+    def set_valorant_mode(self):
+        """MODE,SET,VALORANT"""
+        self._send("MODE,SET,VALORANT")
+
     def set_racing_mode(self):
         """MODE,SET,RACING"""
         self._send("MODE,SET,RACING")
@@ -97,7 +102,14 @@ class ActuatorController:
         """MODE,STATUS"""
         self._send("MODE,STATUS")
 
-    # ── stepper commands ────────────────────────────────────────
+    # ── servo commands (Valorant) ───────────────────────────────
+
+    def send_servo(self, ljx: int = 90, ljy: int = 90, rjx: int = 90,
+                   rjy: int = 90, trigger: int = 0, duration: int = 200):
+        """SERVO,LJX,LJY,RJX,RJY,TRIGGER,DURATION"""
+        self._send(f"SERVO,{ljx},{ljy},{rjx},{rjy},{trigger},{duration}")
+
+    # ── stepper commands (Racing) ───────────────────────────────
 
     def steer_left(self, rate_hz: int = 400):
         """STEPPER,LEFT,<rate_hz>"""
