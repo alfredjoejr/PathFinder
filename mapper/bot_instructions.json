@@ -1,13 +1,13 @@
 [
     {
         "step": 1,
-        "turn_angle_degrees": 87.12,
-        "move_forward_pixels": 86.31,
+        "turn_angle_degrees": 56.31,
+        "move_forward_pixels": 154.03,
         "waypoint_reached": true
     },
     {
         "step": 2,
-        "turn_angle_degrees": -34.99,
+        "turn_angle_degrees": -31.87,
         "move_forward_pixels": 14.14,
         "waypoint_reached": true
     },
@@ -43,20 +43,8 @@
     },
     {
         "step": 8,
-        "turn_angle_degrees": -22.35,
-        "move_forward_pixels": 57.01,
-        "waypoint_reached": true
-    },
-    {
-        "step": 9,
-        "turn_angle_degrees": 22.94,
-        "move_forward_pixels": 77.62,
-        "waypoint_reached": true
-    },
-    {
-        "step": 10,
-        "turn_angle_degrees": -11.63,
-        "move_forward_pixels": 67.08,
+        "turn_angle_degrees": -18.17,
+        "move_forward_pixels": 18.03,
         "waypoint_reached": true
     }
 ]

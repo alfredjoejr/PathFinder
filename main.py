@@ -7,8 +7,8 @@ import sys
 class AILauncher:
     def __init__(self, root):
         self.root = root
-        self.root.title("AI Model Control Center")
-        self.root.geometry("400x250")
+        self.root.title("PathFinder Control Center")
+        self.root.geometry("400x260")
         self.root.configure(padx=20, pady=20)
 
         # Base Directory (Assuming this launcher is saved in the ASHEN root folder)
@@ -16,19 +16,21 @@ class AILauncher:
         
         # Target Folders
         self.mapper_dir = os.path.join(self.base_dir, "mapper")
-        self.aimax_dir = os.path.join(self.base_dir, "AiMaxSteeringModel")
+        self.actuator_dir = os.path.join(self.base_dir, "ActuatorProgram")
         
         # UI Elements
-        tk.Label(root, text="AI Steering & Navigation", font=("Arial", 14, "bold")).pack(pady=(0, 20))
+        tk.Label(root, text="PathFinder — Game Control", font=("Arial", 14, "bold")).pack(pady=(0, 20))
 
         # Local Scripts
-        self.btn_map = tk.Button(root, text="Run mapRunner.py", width=30, height=2, 
+        self.btn_map = tk.Button(root, text="VALORANT", width=30, height=2, 
                                  command=self.run_map)
         self.btn_map.pack(pady=5)
 
-        self.btn_steer = tk.Button(root, text="Run Steering Model", width=30, height=2, 
-                                      command=self.run_steering)
-        self.btn_steer.pack(pady=5)
+
+
+        self.btn_actuator = tk.Button(root, text="RACING", width=30, height=2,
+                                         command=self.run_actuator)
+        self.btn_actuator.pack(pady=5)
 
         # Status Label
         self.status_var = tk.StringVar()
@@ -59,25 +61,10 @@ class AILauncher:
         # Route to mapper/mapRunner.py
         self.run_script("mapRunner.py", self.mapper_dir)
 
-    def run_steering(self):
-        # Pop-up dialog for CPU vs GPU selection
-        answer = messagebox.askyesnocancel(
-            "Hardware Selection", 
-            "Which version of the steering model would you like to run?\n\n"
-            "YES = GPU Version (runner.py)\n"
-            "NO = CPU Version (runner2.py)\n"
-            "CANCEL = Abort launch"
-        )
-        
-        if answer is True:
-            # User clicked YES -> GPU
-            self.run_script("runner.py", self.aimax_dir)
-        elif answer is False:
-            # User clicked NO -> CPU
-            self.run_script("runner2.py", self.aimax_dir)
-        else:
-            # User clicked Cancel or closed the window
-            self.status_var.set("Steering model launch aborted.")
+
+    def run_actuator(self):
+        # Route to ActuatorProgram/actuator_gui.py
+        self.run_script("actuator_gui.py", self.actuator_dir)
 
 if __name__ == "__main__":
     root = tk.Tk()

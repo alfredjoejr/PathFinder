@@ -9,3 +9,7 @@ torchvision>=0.16.0         # Image transformations and utilities for PyTorch
 
 # --- Automation & Input Controls ---
 PyAutoGUI>=0.9.54           # Handles system level keyboard emulation (WASD key presses)
+
+# --- Serial Communication (ActuatorProgram) ---
+pyserial>=3.5               # Serial port communication with the ESP32 actuator controller
+Pillow>=10.0                # Image conversion for Tkinter camera preview
