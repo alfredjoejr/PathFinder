@@ -44,8 +44,13 @@ class AILauncher:
                                            command=self.run_pacman_manual)
         self.btn_pacman_manual.pack(side=tk.LEFT, padx=5, expand=True)
 
-        self.btn_pacman_auto = tk.Button(self.pacman_frame, text="Auto Mode (Autopilot)", width=17, height=1,
-                                         command=self.run_pacman_auto)
+        self.btn_pacman_auto = tk.Menubutton(self.pacman_frame, text="Auto Mode ▾", width=17, height=1,
+                                             relief=tk.RAISED)
+        self.pacman_auto_menu = tk.Menu(self.btn_pacman_auto, tearoff=0)
+        self.pacman_auto_menu.add_command(label="In-Computer Game", command=self.run_pacman_auto_in_computer)
+        self.pacman_auto_menu.add_command(label="External Computer", command=self.run_pacman_auto_external)
+        self.btn_pacman_auto["menu"] = self.pacman_auto_menu
+        self.auto_menu = self.pacman_auto_menu
         self.btn_pacman_auto.pack(side=tk.RIGHT, padx=5, expand=True)
 
         # Status Label
@@ -60,7 +65,7 @@ class AILauncher:
         
         if not os.path.exists(script_path):
             messagebox.showerror("Error", f"File not found:\n{script_path}\n\nMake sure the file exists.")
-            return
+            return None
 
         self.status_var.set(f"Launching {script_name}...")
         self.root.update()
@@ -69,31 +74,48 @@ class AILauncher:
             cmd = [sys.executable, script_path]
             if extra_args:
                 cmd.extend(extra_args)
-            subprocess.Popen(cmd, cwd=folder_path)
+            proc = subprocess.Popen(cmd, cwd=folder_path)
             self.status_var.set(f"{script_name} is running in the background.")
+            return proc
         except Exception as e:
             messagebox.showerror("Execution Error", str(e))
             self.status_var.set("Ready")
+            return None
 
     def run_map(self):
         # Route to mapper/valorant_runner.py
-        self.run_script("valorant_runner.py", self.mapper_dir)
+        return self.run_script("valorant_runner.py", self.mapper_dir)
 
     def run_actuator(self):
         # Route to racing/racing_runner.py
-        self.run_script("racing_runner.py", self.racing_dir)
+        return self.run_script("racing_runner.py", self.racing_dir)
 
     def run_trackmania(self):
         # Route to trackmania/trackmania_runner.py (game runs on another PC, captured by camera)
-        self.run_script("trackmania_runner.py", self.trackmania_dir)
+        return self.run_script("trackmania_runner.py", self.trackmania_dir)
 
     def run_pacman_manual(self):
         # Launch Pac-Man local game for manual playing
-        self.run_script("pacman_game.py", self.pacman_dir)
+        return self.run_script("pacman_game.py", self.pacman_dir)
 
-    def run_pacman_auto(self):
-        # Route to pacman/pacman_runner.py (Full CV & ESP32 Auto-Pilot GUI)
-        self.run_script("pacman_runner.py", self.pacman_dir)
+    def run_pacman_auto_in_computer(self):
+        """Launches local game pacman_game.py with ['--auto'] and runner pacman_runner.py with ['--capture-mode', 'screen']."""
+        p_game = self.run_script("pacman_game.py", self.pacman_dir, ["--auto"])
+        p_runner = self.run_script("pacman_runner.py", self.pacman_dir, ["--capture-mode", "screen"])
+        self.status_var.set("Pac-Man Game & Runner (In-Computer) launched.")
+        return (p_game, p_runner)
+
+    def run_pacman_auto_external(self):
+        """Launches runner pacman_runner.py with ['--capture-mode', 'camera']."""
+        p_runner = self.run_script("pacman_runner.py", self.pacman_dir, ["--capture-mode", "camera"])
+        self.status_var.set("Pac-Man Runner (External Camera) launched.")
+        return p_runner
+
+    def run_pacman_auto(self, mode="in_computer"):
+        """Backward-compatible Auto Mode delegation."""
+        if mode == "external":
+            return self.run_pacman_auto_external()
+        return self.run_pacman_auto_in_computer()
 
 if __name__ == "__main__":
     root = tk.Tk()
