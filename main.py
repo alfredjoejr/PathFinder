@@ -8,7 +8,7 @@ class AILauncher:
     def __init__(self, root):
         self.root = root
         self.root.title("PathFinder Control Center")
-        self.root.geometry("400x370")
+        self.root.geometry("400x430")
         self.root.configure(padx=20, pady=20)
 
         # Base Directory (Assuming this launcher is saved in the ASHEN root folder)
@@ -18,6 +18,7 @@ class AILauncher:
         self.mapper_dir = os.path.join(self.base_dir, "mapper")
         self.racing_dir = os.path.join(self.base_dir, "racing")
         self.pacman_dir = os.path.join(self.base_dir, "pacman")
+        self.trackmania_dir = os.path.join(self.base_dir, "trackmania")
         
         # UI Elements
         tk.Label(root, text="PathFinder — Game Control", font=("Arial", 14, "bold")).pack(pady=(0, 15))
@@ -30,6 +31,10 @@ class AILauncher:
         self.btn_actuator = tk.Button(root, text="RACING", width=30, height=2,
                                       command=self.run_actuator)
         self.btn_actuator.pack(pady=4)
+
+        self.btn_trackmania = tk.Button(root, text="TRACKMANIA (Auto)", width=30, height=2,
+                                        command=self.run_trackmania)
+        self.btn_trackmania.pack(pady=4)
 
         # Pac-Man Submenu Frame
         self.pacman_frame = tk.LabelFrame(root, text="PAC-MAN", font=("Arial", 10, "bold"), padx=10, pady=8)
@@ -77,6 +82,10 @@ class AILauncher:
     def run_actuator(self):
         # Route to racing/racing_runner.py
         self.run_script("racing_runner.py", self.racing_dir)
+
+    def run_trackmania(self):
+        # Route to trackmania/trackmania_runner.py (game runs on another PC, captured by camera)
+        self.run_script("trackmania_runner.py", self.trackmania_dir)
 
     def run_pacman_manual(self):
         # Launch Pac-Man local game for manual playing
