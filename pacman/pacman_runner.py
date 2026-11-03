@@ -306,7 +306,7 @@ class PacmanAutoPilotApp:
         self.root.title("Pac-Man Auto-Pilot")
         self.root.geometry("860x780")
         self.root.configure(bg=self.BG)
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
         # Shared ESP32 actuator controller
         self.ctrl = ActuatorController()

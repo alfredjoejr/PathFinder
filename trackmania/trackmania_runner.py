@@ -433,9 +433,10 @@ class AutoPilotGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Trackmania Auto-Pilot")
-        self.root.geometry("900x900")
+        self.root.geometry("1060x720")
+        self.root.minsize(860, 580)
         self.root.configure(bg=self.BG)
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
         self.ctrl = ActuatorController()
         self.ctrl.on_response = self._on_serial_response
@@ -459,26 +460,60 @@ class AutoPilotGUI:
     # ── UI ──────────────────────────────────────────────────────
 
     def _build_ui(self):
-        tk.Label(self.root, text="Trackmania Auto-Pilot",
-                 font=("Segoe UI", 16, "bold"), bg=self.BG, fg=self.ACCENT
-                 ).grid(row=0, column=0, columnspan=2, pady=(10, 2))
-        tk.Label(self.root, text="Camera (other PC) → Road CV → PD Steering → ESP32 Wheel / Joystick + Throttle",
-                 font=("Segoe UI", 9), bg=self.BG, fg=self.OVERLAY
-                 ).grid(row=1, column=0, columnspan=2)
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(1, weight=1)
+
+        # Header Title
+        hdr = tk.Frame(self.root, bg=self.BG)
+        hdr.grid(row=0, column=0, sticky="ew", pady=(8, 2))
+        tk.Label(hdr, text="Trackmania Auto-Pilot",
+                 font=("Segoe UI", 16, "bold"), bg=self.BG, fg=self.ACCENT).pack()
+        tk.Label(hdr, text="Camera (other PC) → Road CV → PD Steering → ESP32 Wheel / Joystick + Throttle",
+                 font=("Segoe UI", 9), bg=self.BG, fg=self.OVERLAY).pack()
+
+        # Center split: Left (Videos) + Right (Controls with vertical scrollbar)
+        center = tk.Frame(self.root, bg=self.BG)
+        center.grid(row=1, column=0, sticky="nsew", padx=10, pady=2)
+        center.columnconfigure(0, weight=1)  # Left camera column expands
+        center.columnconfigure(1, weight=0)  # Right controls column fixed
+        center.rowconfigure(0, weight=1)
 
         # ── Left column: camera + debug ─────────────────────────
-        left = tk.Frame(self.root, bg=self.BG)
-        left.grid(row=2, column=0, padx=(12, 6), pady=8, sticky="n")
+        self.left_col = tk.Frame(center, bg=self.BG)
+        self.left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        self.left_col.columnconfigure(0, weight=1)
+        self.left_col.rowconfigure(0, weight=3)
+        self.left_col.rowconfigure(1, weight=2)
 
-        self.camera_label = tk.Label(left, bg="#000000", width=60, height=20)
-        self.camera_label.pack()
+        self.camera_label = tk.Label(self.left_col, bg="#000000")
+        self.camera_label.grid(row=0, column=0, sticky="nsew", pady=(0, 4))
 
-        self.debug_label = tk.Label(left, bg="#111111", width=60, height=12)
-        self.debug_label.pack(pady=(6, 0))
+        self.debug_label = tk.Label(self.left_col, bg="#111111")
+        self.debug_label.grid(row=1, column=0, sticky="nsew")
 
-        # ── Right column: controls ──────────────────────────────
-        right = tk.Frame(self.root, bg=self.BG)
-        right.grid(row=2, column=1, padx=(6, 12), pady=8, sticky="n")
+        # ── Right column: scrollable controls ───────────────────
+        right_canvas = tk.Canvas(center, bg=self.BG, highlightthickness=0, width=400)
+        right_scroll = ttk.Scrollbar(center, orient="vertical", command=right_canvas.yview)
+        right_canvas.configure(yscrollcommand=right_scroll.set)
+
+        right = tk.Frame(right_canvas, bg=self.BG)
+        right_win = right_canvas.create_window((0, 0), window=right, anchor="nw")
+
+        def _on_right_cfg(e):
+            right_canvas.configure(scrollregion=right_canvas.bbox("all"))
+        right.bind("<Configure>", _on_right_cfg)
+
+        def _on_canvas_cfg(e):
+            right_canvas.itemconfig(right_win, width=e.width)
+        right_canvas.bind("<Configure>", _on_canvas_cfg)
+
+        # Mouse wheel support on controls pane
+        def _on_mousewheel(e):
+            right_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        right_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        right_canvas.grid(row=0, column=1, sticky="nsew")
+        right_scroll.grid(row=0, column=2, sticky="ns")
 
         # Connection
         conn = tk.LabelFrame(right, text=" Connection ", font=("Segoe UI", 9, "bold"),
@@ -616,8 +651,8 @@ class AutoPilotGUI:
         # Serial log
         log_f = tk.LabelFrame(self.root, text=" Serial Log ", font=("Segoe UI", 9, "bold"),
                               bg=self.SURFACE, fg=self.FG, padx=4, pady=2)
-        log_f.grid(row=3, column=0, columnspan=2, padx=12, pady=(0, 10), sticky="ew")
-        self.log_text = scrolledtext.ScrolledText(log_f, height=5, bg=self.BG,
+        log_f.grid(row=2, column=0, padx=10, pady=(2, 6), sticky="ew")
+        self.log_text = scrolledtext.ScrolledText(log_f, height=4, bg=self.BG,
                                                   fg=self.GREEN, font=("Consolas", 8),
                                                   relief="flat", state="disabled", wrap="word")
         self.log_text.pack(fill="x")
@@ -754,12 +789,18 @@ class AutoPilotGUI:
         self.wheel.max_hz = self.max_hz_var.get()
 
         if self._autopilot_active:
+            # Dynamic max dimensions based on actual left column size
+            lw = max(440, self.left_col.winfo_width())
+            lh = max(380, self.left_col.winfo_height())
+            cam_max_h = max(240, int(lh * 0.60))
+            dbg_max_h = max(140, int(lh * 0.38))
+
             frame = v.last_frame
             if frame is not None:
-                self._show_image(self.camera_label, frame, max_w=440, max_h=300)
+                self._show_image(self.camera_label, frame, max_w=lw, max_h=cam_max_h)
             debug = v.last_debug
             if debug is not None:
-                self._show_image(self.debug_label, debug, max_w=440, max_h=180)
+                self._show_image(self.debug_label, debug, max_w=lw, max_h=dbg_max_h)
 
             action = v.last_action
             steer = v.last_steer
