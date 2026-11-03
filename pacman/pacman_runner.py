@@ -606,7 +606,7 @@ class PacmanAutoPilotApp:
 
         rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
         img_pi = ImageTk.PhotoImage(Image.fromarray(rgb))
-        label.config(image=img_pi)
+        label.config(image=img_pi, width=0, height=0)
         label.image = img_pi
 
     # ── Serial Callbacks & Logging ──────────────────────────────

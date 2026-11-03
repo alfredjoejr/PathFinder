@@ -820,7 +820,7 @@ class AutoPilotGUI:
             cv_img = cv2.resize(cv_img, (int(w * scale), int(h * scale)))
         rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         tk_img = ImageTk.PhotoImage(Image.fromarray(rgb))
-        label.config(image=tk_img)
+        label.config(image=tk_img, width=0, height=0)
         label._photo = tk_img  # prevent garbage collection
 
     # ── serial callbacks (from reader thread) ───────────────────
