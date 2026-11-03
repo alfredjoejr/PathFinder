@@ -6,10 +6,14 @@ Speaks the protocol defined in ActuatorProgram/include/README.md:
   MODE,SET,VALORANT / MODE,SET,RACING / MODE,START / MODE,STOP / MODE,RESET / MODE,STATUS
   SERVO,LJX,LJY,RJX,RJY,TRIGGER[,DURATION]  (Valorant mode)
   STEPPER,LEFT[,RATE_HZ] / STEPPER,RIGHT[,RATE_HZ] / STEPPER,STOP  (Racing mode)
+
+Includes a built-in "VIRTUAL_COM" mock mode so the full auto-pilot vision
+pipeline and GUI can be tested on machines without physical ESP32 hardware attached.
 """
 
 import threading
 import time
+import queue
 import serial
 import serial.tools.list_ports
 
@@ -18,12 +22,17 @@ class ActuatorController:
     """Thread-safe serial controller for the ESP32 actuator (Valorant + Racing)."""
 
     BAUD_RATE = 115200
+    VIRTUAL_PORT = "VIRTUAL_COM"
 
     def __init__(self):
         self._ser = None
         self._lock = threading.Lock()
         self._reader_thread = None
         self._running = False
+        self._is_virtual = False
+        self._virt_queue = queue.Queue()
+        self._virt_mode = "NONE"
+        self._virt_state = "IDLE"
 
         # Callbacks – set by the GUI layer
         self.on_response = None   # callable(str)  – every raw line from ESP32
@@ -34,16 +43,35 @@ class ActuatorController:
 
     # ── connection ──────────────────────────────────────────────
 
-    @staticmethod
-    def list_ports():
-        """Return a list of available COM port names."""
-        return [p.device for p in serial.tools.list_ports.comports()]
+    @classmethod
+    def list_ports(cls):
+        """Return a list of available COM port names + VIRTUAL_COM for offline testing."""
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        if cls.VIRTUAL_PORT not in ports:
+            ports.append(cls.VIRTUAL_PORT)
+        return ports
 
     def connect(self, port: str) -> bool:
-        """Open the serial port and start the background reader."""
-        if self._ser and self._ser.is_open:
+        """Open the serial port (or virtual mock) and start the background reader."""
+        if self.is_connected:
             return True
+
+        if port == self.VIRTUAL_PORT:
+            self._is_virtual = True
+            self._virt_mode = "NONE"
+            self._virt_state = "IDLE"
+            self._running = True
+            self._reader_thread = threading.Thread(
+                target=self._virtual_reader_loop, daemon=True
+            )
+            self._reader_thread.start()
+            # Push initial firmware greeting
+            self._virt_queue.put("DEBUG,Virtual ESP32 firmware initialized")
+            self._virt_queue.put("STATUS,NONE,IDLE")
+            return True
+
         try:
+            self._is_virtual = False
             self._ser = serial.Serial(port, self.BAUD_RATE, timeout=0.1)
             time.sleep(2)  # ESP32 resets on serial open; wait for boot
             self._running = True
@@ -57,11 +85,12 @@ class ActuatorController:
             return False
 
     def disconnect(self):
-        """Stop the reader and close the serial port."""
+        """Stop the reader and close the serial port / virtual mock."""
         self._running = False
         if self._reader_thread:
             self._reader_thread.join(timeout=2)
             self._reader_thread = None
+
         with self._lock:
             if self._ser and self._ser.is_open:
                 try:
@@ -69,11 +98,15 @@ class ActuatorController:
                 except Exception:
                     pass
             self._ser = None
+            self._is_virtual = False
+
         if self.on_disconnect:
             self.on_disconnect()
 
     @property
     def is_connected(self) -> bool:
+        if self._is_virtual and self._running:
+            return True
         return self._ser is not None and self._ser.is_open
 
     # ── mode commands ───────────────────────────────────────────
@@ -126,7 +159,11 @@ class ActuatorController:
     # ── internals ───────────────────────────────────────────────
 
     def _send(self, cmd: str):
-        """Send a newline-terminated command to the ESP32."""
+        """Send a newline-terminated command to the real or virtual ESP32."""
+        if self._is_virtual:
+            self._handle_virtual_command(cmd)
+            return
+
         with self._lock:
             if not self._ser or not self._ser.is_open:
                 return
@@ -136,7 +173,7 @@ class ActuatorController:
                 self.disconnect()
 
     def _read_loop(self):
-        """Background thread: continuously read lines from ESP32."""
+        """Background thread: continuously read lines from real ESP32."""
         while self._running:
             try:
                 with self._lock:
@@ -156,9 +193,48 @@ class ActuatorController:
             except Exception:
                 continue
 
+    def _virtual_reader_loop(self):
+        """Background thread: dispatch mock responses from virtual ESP32 queue."""
+        while self._running:
+            try:
+                msg = self._virt_queue.get(timeout=0.05)
+                if msg:
+                    self._dispatch(msg)
+            except queue.Empty:
+                continue
+            except Exception:
+                break
+
+    def _handle_virtual_command(self, cmd: str):
+        """Simulate real ESP32 firmware state machine & responses."""
+        parts = cmd.strip().split(",")
+        tag = parts[0] if parts else ""
+
+        if tag == "MODE":
+            sub = parts[1] if len(parts) > 1 else ""
+            if sub == "SET" and len(parts) > 2:
+                self._virt_mode = parts[2]
+                self._virt_state = "MODE_SET"
+                self._virt_queue.put(f"STATUS,{self._virt_mode},{self._virt_state}")
+            elif sub == "START":
+                self._virt_state = "RUNNING"
+                self._virt_queue.put(f"STATUS,{self._virt_mode},{self._virt_state}")
+            elif sub == "STOP":
+                self._virt_state = "STOPPED"
+                self._virt_queue.put(f"STATUS,{self._virt_mode},{self._virt_state}")
+            elif sub == "RESET":
+                self._virt_mode = "NONE"
+                self._virt_state = "IDLE"
+                self._virt_queue.put(f"STATUS,NONE,IDLE")
+            elif sub == "STATUS":
+                self._virt_queue.put(f"STATUS,{self._virt_mode},{self._virt_state}")
+
+        elif tag in ("SERVO", "STEPPER"):
+            # Real firmware responds OK to valid actuator commands
+            self._virt_queue.put("OK")
+
     def _dispatch(self, line: str):
         """Parse a response line and invoke the appropriate callback."""
-        # Always forward the raw line
         if self.on_response:
             self.on_response(line)
 
