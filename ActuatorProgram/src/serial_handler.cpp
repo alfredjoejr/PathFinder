@@ -49,6 +49,8 @@ CommandType SerialHandler::getCommandType(const char* cmdBuffer) {
         return CMD_MODE;
     } else if (strncmp(cmdBuffer, "SERVO", 5) == 0) {
         return CMD_SERVO;
+    } else if (strncmp(cmdBuffer, "RACE", 4) == 0) {
+        return CMD_RACE;
     } else if (strncmp(cmdBuffer, "STEPPER", 7) == 0) {
         return CMD_STEPPER;
     }
@@ -152,6 +154,80 @@ bool SerialHandler::parseServoCommand(char* cmdBuffer, BatchServoCommand& servoC
         servoCmd.duration_ms = DEFAULT_MOVEMENT_DURATION_MS;
     }
     
+    return true;
+}
+
+bool SerialHandler::parseRaceCommand(char* cmdBuffer, RaceCommand& raceCmd) {
+    // Expected format: "RACE,LEFT,<RATE_HZ>,<LEFT_PADDLE>,<RIGHT_PADDLE>",
+    //                  "RACE,RIGHT,<RATE_HZ>,<LEFT_PADDLE>,<RIGHT_PADDLE>",
+    //                  or "RACE,STOP"
+    if (strncmp(cmdBuffer, "RACE,", 5) != 0) {
+        return false;
+    }
+
+    char* ptr = cmdBuffer + 5;
+    char tempBuffer[SERIAL_BUFFER_SIZE];
+    strncpy(tempBuffer, ptr, SERIAL_BUFFER_SIZE - 1);
+    tempBuffer[SERIAL_BUFFER_SIZE - 1] = '\0';
+
+    char* token = strtok(tempBuffer, ",");
+    if (token == NULL) {
+        return false;
+    }
+
+    if (strcmp(token, "STOP") == 0) {
+        if (strtok(NULL, ",") != NULL) {
+            return false;  // Strict field count: no trailing arguments
+        }
+        raceCmd.is_stop = true;
+        raceCmd.direction = STEPPER_DIR_STOP;
+        raceCmd.rate_hz = 0;
+        raceCmd.left_paddle = 90;
+        raceCmd.right_paddle = 90;
+        return true;
+    }
+
+    raceCmd.is_stop = false;
+    if (strcmp(token, "LEFT") == 0) {
+        raceCmd.direction = STEPPER_DIR_LEFT;
+    } else if (strcmp(token, "RIGHT") == 0) {
+        raceCmd.direction = STEPPER_DIR_RIGHT;
+    } else {
+        return false;
+    }
+
+    // Rate HZ (10-2000)
+    token = strtok(NULL, ",");
+    if (token == NULL) return false;
+    int rateHz = atoi(token);
+    if (rateHz < MIN_STEPPER_RATE_HZ || rateHz > MAX_STEPPER_RATE_HZ) {
+        return false;
+    }
+    raceCmd.rate_hz = static_cast<uint16_t>(rateHz);
+
+    // Left Paddle (0-180)
+    token = strtok(NULL, ",");
+    if (token == NULL) return false;
+    int leftPaddle = atoi(token);
+    if (leftPaddle < 0 || leftPaddle > 180) {
+        return false;
+    }
+    raceCmd.left_paddle = static_cast<uint8_t>(leftPaddle);
+
+    // Right Paddle (0-180)
+    token = strtok(NULL, ",");
+    if (token == NULL) return false;
+    int rightPaddle = atoi(token);
+    if (rightPaddle < 0 || rightPaddle > 180) {
+        return false;
+    }
+    raceCmd.right_paddle = static_cast<uint8_t>(rightPaddle);
+
+    // Strict check: no trailing tokens
+    if (strtok(NULL, ",") != NULL) {
+        return false;
+    }
+
     return true;
 }
 

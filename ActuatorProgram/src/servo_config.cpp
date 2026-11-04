@@ -11,7 +11,11 @@ ServoCalibration ServoConfig::servoConfigs[NUM_SERVOS] = {
     // Right Joystick Y
     {SERVO_RJ_Y, SERVO_RJ_Y_PIN, 3, 0, 180, 90, SERVO_PWM_MIN_US, SERVO_PWM_MAX_US},
     // Trigger Button
-    {SERVO_TRIGGER, SERVO_TRIGGER_PIN, 4, 0, 180, 0, SERVO_PWM_MIN_US, SERVO_PWM_MAX_US}
+    {SERVO_TRIGGER, SERVO_TRIGGER_PIN, 4, 0, 180, 0, SERVO_PWM_MIN_US, SERVO_PWM_MAX_US},
+    // Left Paddle (Brake)
+    {SERVO_PADDLE_LEFT, SERVO_PADDLE_LEFT_PIN, 5, 0, 180, 90, SERVO_PWM_MIN_US, SERVO_PWM_MAX_US},
+    // Right Paddle (Throttle)
+    {SERVO_PADDLE_RIGHT, SERVO_PADDLE_RIGHT_PIN, 6, 0, 180, 90, SERVO_PWM_MIN_US, SERVO_PWM_MAX_US}
 };
 
 void ServoConfig::init() {

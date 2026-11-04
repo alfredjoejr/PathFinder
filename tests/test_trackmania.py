@@ -118,6 +118,63 @@ class TestWheelController(unittest.TestCase):
         self.w._integrate()
         self.assertAlmostEqual(self.w.pos, 100, delta=15)
 
+    def test_race_packet_turn_left(self):
+        self.w.tick(-0.5, left_paddle=90, right_paddle=180)
+        self.ctrl.send_race.assert_called_with("LEFT", mock.ANY, 90, 180)
+        self.assertEqual(self.w.dir, -1)
+
+    def test_race_packet_turn_right(self):
+        self.w.tick(0.5, left_paddle=90, right_paddle=180)
+        self.ctrl.send_race.assert_called_with("RIGHT", mock.ANY, 90, 180)
+        self.assertEqual(self.w.dir, 1)
+
+    def test_race_packet_centered_gas(self):
+        self.w.pos = 300.0
+        self.w.dir, self.w.hz = 1, 400
+        self.w._last = time.time()
+        # Inside deadband with throttle on
+        self.w.tick(0.5, left_paddle=90, right_paddle=180)
+        self.ctrl.send_race.assert_called_with("LEFT", 10, 90, 180)
+        self.ctrl.steer_stop.assert_called()
+        self.assertEqual(self.w.dir, 0)
+
+    def test_race_packet_coast_stop(self):
+        self.w.pos = 300.0
+        self.w.dir, self.w.hz = 1, 400
+        self.w._last = time.time()
+        # Inside deadband with throttle off
+        self.w.tick(0.5, left_paddle=90, right_paddle=90)
+        self.ctrl.race_stop.assert_called()
+        self.assertEqual(self.w.dir, 0)
+
+
+class TestActuatorRacingProtocol(unittest.TestCase):
+    def test_virtual_com_racing_lifecycle(self):
+        from actuator_controller import ActuatorController
+        ctrl = ActuatorController()
+        self.assertTrue(ctrl.connect(ActuatorController.VIRTUAL_PORT))
+        try:
+            # Rejection before racing running
+            err_received = []
+            ctrl.on_error = lambda code, msg: err_received.append((code, msg))
+            ctrl.send_race("LEFT", 400, 90, 180)
+            time.sleep(0.1)
+            self.assertTrue(any(code == 204 for code, _ in err_received))
+
+            # Proper state lifecycle: IDLE -> MODE_SET -> RUNNING
+            self.assertTrue(ctrl.set_racing_mode_sync(timeout=1.0))
+            self.assertTrue(ctrl.start_sync(timeout=1.0))
+
+            # RACE and STOP allowed in RUNNING
+            ctrl.send_race("RIGHT", 500, 90, 180)
+            ctrl.race_stop()
+
+            # Lifecycle exit: RUNNING -> STOPPED -> IDLE
+            self.assertTrue(ctrl.stop_sync(timeout=1.0))
+            self.assertTrue(ctrl.reset_sync(timeout=1.0))
+        finally:
+            ctrl.disconnect()
+
 
 class TestLauncherButton(unittest.TestCase):
     def test_trackmania_route(self):

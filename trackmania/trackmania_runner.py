@@ -384,7 +384,7 @@ class WheelStepperController:
         self.pos += self.dir * self.hz * (now - self._last)
         self._last = now
 
-    def tick(self, steer: float):
+    def tick(self, steer: float, left_paddle: int = None, right_paddle: int = None):
         self._integrate()
         target = max(-1.0, min(1.0, steer)) * self.wheel_range
         err = target - self.pos
@@ -396,14 +396,30 @@ class WheelStepperController:
             want_dir = 1 if err > 0 else -1
             want_hz = int(max(self.MIN_HZ, min(self.max_hz, abs(err) * 6)))
 
-        if want_dir != self.dir or (want_dir != 0 and abs(want_hz - self.hz) >= 60):
+        if left_paddle is not None and right_paddle is not None:
+            # Official Actuator Protocol Guide combined RACE packet
             if want_dir == 0:
-                self.ctrl.steer_stop()
+                if right_paddle > 90 or left_paddle > 90:
+                    # Centered steering with active throttle:
+                    # RACE,LEFT,10,<left_paddle>,<right_paddle> followed by STEPPER,STOP
+                    self.ctrl.send_race("LEFT", 10, left_paddle, right_paddle)
+                    self.ctrl.steer_stop()
+                else:
+                    self.ctrl.race_stop()
             elif want_dir < 0:
-                self.ctrl.steer_left(want_hz)
+                self.ctrl.send_race("LEFT", want_hz, left_paddle, right_paddle)
             else:
-                self.ctrl.steer_right(want_hz)
+                self.ctrl.send_race("RIGHT", want_hz, left_paddle, right_paddle)
             self.dir, self.hz = want_dir, want_hz
+        else:
+            if want_dir != self.dir or (want_dir != 0 and abs(want_hz - self.hz) >= 60):
+                if want_dir == 0:
+                    self.ctrl.steer_stop()
+                elif want_dir < 0:
+                    self.ctrl.steer_left(want_hz)
+                else:
+                    self.ctrl.steer_right(want_hz)
+                self.dir, self.hz = want_dir, want_hz
 
     def stop(self):
         self._integrate()
@@ -719,11 +735,13 @@ class AutoPilotGUI:
                                  f"Could not open camera index {cam_idx}.\nTry a different index.")
             return
 
-        # RACING mode accepts both STEPPER and SERVO commands while RUNNING
-        self.ctrl.set_racing_mode()
-        time.sleep(0.3)
-        self.ctrl.start()
-        time.sleep(0.3)
+        # Follow strict state transition: IDLE -> MODE_SET -> RUNNING
+        if not self.ctrl.set_racing_mode_sync(timeout=2.0):
+            self.ctrl.set_racing_mode()
+            time.sleep(0.2)
+        if not self.ctrl.start_sync(timeout=2.0):
+            self.ctrl.start()
+            time.sleep(0.2)
 
         self.wheel.reset()
         self.vision.start()
@@ -739,8 +757,8 @@ class AutoPilotGUI:
         self.vision.close_camera()
         self._autopilot_active = False
 
-        # Release throttle + centre joystick
-        self.ctrl.send_servo(90, 90, 90, 90, 0, 200)
+        # Release throttle and paddles to neutral 90
+        self.ctrl.race_stop()
         self._last_sent_servos = None
 
         # Drive the wheel back to its estimated centre, then stop the mode
@@ -759,12 +777,14 @@ class AutoPilotGUI:
             self._finish_stop()
 
     def _finish_stop(self):
-        self.ctrl.steer_stop()
+        self.ctrl.race_stop()
         self.wheel.reset()
-        time.sleep(0.1)
-        self.ctrl.stop()
-        time.sleep(0.1)
-        self.ctrl.reset()
+        # Follow strict state transition: RUNNING -> STOPPED -> IDLE
+        if not self.ctrl.stop_sync(timeout=1.5):
+            self.ctrl.stop()
+            time.sleep(0.1)
+        if not self.ctrl.reset_sync(timeout=1.5):
+            self.ctrl.reset()
         self.btn_autopilot.config(text="▶  START AUTO-PILOT", bg=self.GREEN)
         self._log("Auto-pilot STOPPED.")
 
@@ -832,27 +852,20 @@ class AutoPilotGUI:
 
         use_wheel = self.steer_mode_var.get() == self.STEER_WHEEL
 
-        # Steering: wheel (stepper) or joystick X (servo)
+        # Racing paddles (Servo 5 = Left Paddle / Brake, Servo 6 = Right Paddle / Throttle)
+        right_paddle = self.gas_angle_var.get() if throttle else 90
+        left_paddle = 90  # Neutral brake (180 when braking)
+
         if use_wheel:
-            self.wheel.tick(steer)
-            ljx = 90
+            self.wheel.tick(steer, left_paddle=left_paddle, right_paddle=right_paddle)
         else:
             if self.wheel.dir != 0:
                 self.wheel.stop()
-            ljx = int(round(90 + steer * self.joy_range_var.get()))
-            ljx = max(0, min(180, ljx))
-
-        trig = self.gas_angle_var.get() if throttle else 0
-        servos = (ljx, 90, 90, 90, trig)
-
-        # Rate-limit servo traffic: send on meaningful change or 1 s heartbeat
-        now = time.time()
-        last = self._last_sent_servos
-        changed = (last is None or abs(last[0] - ljx) >= 2 or last[4] != trig)
-        if changed or (now - self._last_servo_time) > 1.0:
-            self.ctrl.send_servo(*servos, duration=50)
-            self._last_sent_servos = servos
-            self._last_servo_time = now
+            if throttle:
+                self.ctrl.send_race("LEFT", 10, left_paddle, right_paddle)
+                self.ctrl.steer_stop()
+            else:
+                self.ctrl.race_stop()
 
     def _show_image(self, label, cv_img, max_w, max_h):
         h, w = cv_img.shape[:2]
@@ -907,9 +920,9 @@ class AutoPilotGUI:
         if self._autopilot_active:
             self.vision.stop()
             self.vision.close_camera()
-            self.ctrl.send_servo(90, 90, 90, 90, 0, 200)
-            self.ctrl.steer_stop()
+            self.ctrl.race_stop()
             self.ctrl.stop()
+            self.ctrl.reset()
         if self.ctrl.is_connected:
             self.ctrl.disconnect()
         self.root.destroy()

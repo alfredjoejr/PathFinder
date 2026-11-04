@@ -17,6 +17,7 @@ const unsigned long STATUS_UPDATE_INTERVAL = 100;  // 100ms
 void processCommand();
 void processModeCommand(const char* cmdBuffer);
 void processServoCommand(const char* cmdBuffer);
+void processRaceCommand(const char* cmdBuffer);
 void processStepperCommand(const char* cmdBuffer);
 void sendPeriodicStatus();
 
@@ -81,6 +82,8 @@ void processCommand() {
         processModeCommand(cmdBuffer);
     } else if (cmdType == CMD_SERVO) {
         processServoCommand(cmdBuffer);
+    } else if (cmdType == CMD_RACE) {
+        processRaceCommand(cmdBuffer);
     } else if (cmdType == CMD_STEPPER) {
         processStepperCommand(cmdBuffer);
     } else {
@@ -178,6 +181,41 @@ void processServoCommand(const char* cmdBuffer) {
     ModeManager::updateCommandTime();
     
     // Send confirmation
+    ResponseBuilder::sendOK();
+}
+
+void processRaceCommand(const char* cmdBuffer) {
+    // Accepted only when mode is RACING and state is RUNNING (error 204)
+    if (ModeManager::getMode() != MODE_RACING || ModeManager::getState() != STATE_RUNNING) {
+        ResponseBuilder::sendError(ERR_STEPPER_MODE_NOT_RUNNING, "Racing command not allowed in current state");
+        return;
+    }
+
+    RaceCommand raceCmd;
+    char tempBuffer[SERIAL_BUFFER_SIZE];
+    strncpy(tempBuffer, cmdBuffer, SERIAL_BUFFER_SIZE - 1);
+    tempBuffer[SERIAL_BUFFER_SIZE - 1] = '\0';
+
+    if (!SerialHandler::parseRaceCommand(tempBuffer, raceCmd)) {
+        ResponseBuilder::sendError(ERR_COMM_MALFORMED_COMMAND, "Invalid RACE command format");
+        return;
+    }
+
+    if (raceCmd.is_stop) {
+        // RACE,STOP stops the stepper AND returns both paddles to 90
+        RacingStepper::stop();
+        ServoController::moveServo(SERVO_PADDLE_LEFT, 90);
+        ServoController::moveServo(SERVO_PADDLE_RIGHT, 90);
+    } else {
+        // Move paddles (instant)
+        ServoController::moveServo(SERVO_PADDLE_LEFT, raceCmd.left_paddle);
+        ServoController::moveServo(SERVO_PADDLE_RIGHT, raceCmd.right_paddle);
+        // Start stepper
+        RacingStepper::start(raceCmd.direction, raceCmd.rate_hz);
+    }
+
+    // Both RACE,dir and RACE,STOP count as gameplay activity and reset timeout
+    ModeManager::updateCommandTime();
     ResponseBuilder::sendOK();
 }
 

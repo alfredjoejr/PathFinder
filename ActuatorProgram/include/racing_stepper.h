@@ -6,15 +6,17 @@
 
 class RacingStepper {
 public:
-	static void init();
-	static void update();
-	static void start(StepperDirection direction, uint16_t rateHz = DEFAULT_STEPPER_RATE_HZ);
-	static void stop();
-	static bool isActive();
+    static void init();
+    static void update();
+    static void start(StepperDirection direction, uint16_t rateHz = DEFAULT_STEPPER_RATE_HZ);
+    static void stop();
+    static bool isActive();
+    static int32_t getPosition();
+    static void resetPosition();
 
 private:
-	static void setDirection(StepperDirection direction);
-	static void setStepPin(bool high);
+    static void setDirection(StepperDirection direction);
+    static void setStepPin(bool high);
 };
 
 #endif

@@ -7,6 +7,7 @@
 enum CommandType {
     CMD_MODE,    // MODE commands
     CMD_SERVO,   // SERVO commands
+    CMD_RACE,    // RACE commands
     CMD_STEPPER, // STEPPER commands
     CMD_UNKNOWN
 };
@@ -46,7 +47,7 @@ enum ModeCommand {
 #define ERR_SERVO_INCOMPLETE_COMMAND  202
 #define ERR_SERVO_INVALID_DURATION    203
 
-// 2xx: Stepper errors
+// 2xx: Stepper / Racing errors
 #define ERR_STEPPER_MODE_NOT_RUNNING  204
 #define ERR_STEPPER_INVALID_DIRECTION 205
 #define ERR_STEPPER_INVALID_SPEED     206
@@ -57,16 +58,18 @@ enum ModeCommand {
 #define ERR_COMM_BUFFER_OVERFLOW      302
 
 // ==================== SERVO CONFIGURATION ====================
-#define NUM_SERVOS                    5
+#define NUM_SERVOS                    7
 #define SERVO_MIN_ANGLE               0
 #define SERVO_MAX_ANGLE               180
 #define SERVO_NEUTRAL_ANGLE           90
 
-#define SERVO_LJ_X                    0  // Left Joystick X
-#define SERVO_LJ_Y                    1  // Left Joystick Y
-#define SERVO_RJ_X                    2  // Right Joystick X
-#define SERVO_RJ_Y                    3  // Right Joystick Y
-#define SERVO_TRIGGER                 4  // Trigger Button
+#define SERVO_LJ_X                    0  // Left Joystick X (neutral 90)
+#define SERVO_LJ_Y                    1  // Left Joystick Y (neutral 90)
+#define SERVO_RJ_X                    2  // Right Joystick X (neutral 90)
+#define SERVO_RJ_Y                    3  // Right Joystick Y (neutral 90)
+#define SERVO_TRIGGER                 4  // Trigger Button (neutral 0)
+#define SERVO_PADDLE_LEFT             5  // Left Paddle - Brake (neutral 90)
+#define SERVO_PADDLE_RIGHT            6  // Right Paddle - Throttle (neutral 90)
 
 // ==================== MOVEMENT PARAMETERS ====================
 #define DEFAULT_MOVEMENT_DURATION_MS  200  // Default smooth movement time
@@ -81,7 +84,8 @@ enum ModeCommand {
 
 // ==================== STEPPER CONFIGURATION ====================
 #define STEPPER_STEP_PIN              4
-#define STEPPER_DIR_PIN               2
+#define STEPPER_DIR_PIN               16
+#define STEPPER_MAX_POSITION_STEPS    500
 #define DEFAULT_STEPPER_RATE_HZ       400
 #define MIN_STEPPER_RATE_HZ           10
 #define MAX_STEPPER_RATE_HZ           2000
@@ -111,6 +115,14 @@ enum StepperDirection {
 struct StepperCommand {
     StepperDirection direction;
     uint16_t rate_hz;
+};
+
+struct RaceCommand {
+    StepperDirection direction;
+    uint16_t rate_hz;
+    uint8_t left_paddle;
+    uint8_t right_paddle;
+    bool is_stop;
 };
 
 #endif

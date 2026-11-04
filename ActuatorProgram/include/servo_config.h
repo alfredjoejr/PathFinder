@@ -6,11 +6,13 @@
 
 // ==================== GPIO PIN CONFIGURATION ====================
 // Servo GPIO pin assignments for ESP32
-#define SERVO_LJ_X_PIN    25  // Left Joystick X
-#define SERVO_LJ_Y_PIN    26  // Left Joystick Y
-#define SERVO_RJ_X_PIN    27  // Right Joystick X
-#define SERVO_RJ_Y_PIN    32  // Right Joystick Y
-#define SERVO_TRIGGER_PIN 33  // Trigger Button
+#define SERVO_LJ_X_PIN          25  // Left Joystick X
+#define SERVO_LJ_Y_PIN          26  // Left Joystick Y
+#define SERVO_RJ_X_PIN          27  // Right Joystick X
+#define SERVO_RJ_Y_PIN          32  // Right Joystick Y
+#define SERVO_TRIGGER_PIN       33  // Trigger Button
+#define SERVO_PADDLE_LEFT_PIN   13  // Left Paddle (Brake)
+#define SERVO_PADDLE_RIGHT_PIN  14  // Right Paddle (Throttle)
 
 // ==================== PWM CONFIGURATION ====================
 #define PWM_FREQUENCY     50    // 50 Hz (standard servo frequency)
@@ -50,7 +52,7 @@ public:
     static uint8_t getServoCount();
     
 private:
-    // Servo calibration data for 5 servos
+    // Servo calibration data for 7 servos
     static ServoCalibration servoConfigs[NUM_SERVOS];
 };
 

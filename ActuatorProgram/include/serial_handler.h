@@ -31,6 +31,9 @@ public:
     // Parse SERVO command: "SERVO,90,90,90,90,0,200"
     static bool parseServoCommand(char* cmdBuffer, BatchServoCommand& servoCmd);
 
+    // Parse RACE command: "RACE,LEFT,400,90,90" or "RACE,STOP"
+    static bool parseRaceCommand(char* cmdBuffer, RaceCommand& raceCmd);
+
     // Parse STEPPER command: "STEPPER,LEFT[,RATE_HZ]" or "STEPPER,STOP"
     static bool parseStepperCommand(char* cmdBuffer, StepperCommand& stepperCmd);
     

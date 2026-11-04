@@ -9,6 +9,7 @@ struct StepperState {
     StepperDirection direction;
     uint16_t rateHz;
     unsigned long lastEdgeMicros;
+    int32_t position;
 };
 
 StepperState stepperState = {
@@ -16,6 +17,7 @@ StepperState stepperState = {
     false,
     STEPPER_DIR_STOP,
     DEFAULT_STEPPER_RATE_HZ,
+    0,
     0
 };
 }  // namespace
@@ -32,6 +34,7 @@ void RacingStepper::init() {
     stepperState.direction = STEPPER_DIR_STOP;
     stepperState.rateHz = DEFAULT_STEPPER_RATE_HZ;
     stepperState.lastEdgeMicros = micros();
+    stepperState.position = 0;
 }
 
 void RacingStepper::start(StepperDirection direction, uint16_t rateHz) {
@@ -67,6 +70,22 @@ void RacingStepper::update() {
         return;
     }
 
+    // Check travel limits: stop pulsing if at or beyond limit in current direction
+    if (stepperState.direction == STEPPER_DIR_LEFT && stepperState.position <= -STEPPER_MAX_POSITION_STEPS) {
+        if (stepperState.stepPinHigh) {
+            setStepPin(false);
+            stepperState.stepPinHigh = false;
+        }
+        return;
+    }
+    if (stepperState.direction == STEPPER_DIR_RIGHT && stepperState.position >= STEPPER_MAX_POSITION_STEPS) {
+        if (stepperState.stepPinHigh) {
+            setStepPin(false);
+            stepperState.stepPinHigh = false;
+        }
+        return;
+    }
+
     unsigned long now = micros();
     uint32_t stepIntervalUs = 1000000UL / stepperState.rateHz;
 
@@ -75,6 +94,13 @@ void RacingStepper::update() {
             setStepPin(true);
             stepperState.stepPinHigh = true;
             stepperState.lastEdgeMicros = now;
+
+            // Track position on rising step pulse
+            if (stepperState.direction == STEPPER_DIR_LEFT) {
+                stepperState.position--;
+            } else if (stepperState.direction == STEPPER_DIR_RIGHT) {
+                stepperState.position++;
+            }
         }
     } else {
         if (now - stepperState.lastEdgeMicros >= STEP_PULSE_WIDTH_US) {
@@ -87,6 +113,14 @@ void RacingStepper::update() {
 
 bool RacingStepper::isActive() {
     return stepperState.active;
+}
+
+int32_t RacingStepper::getPosition() {
+    return stepperState.position;
+}
+
+void RacingStepper::resetPosition() {
+    stepperState.position = 0;
 }
 
 void RacingStepper::setDirection(StepperDirection direction) {
